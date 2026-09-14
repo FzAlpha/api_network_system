@@ -14,6 +14,45 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Include CMake's FetchContent module
+include(FetchContent)
+
+# Declare and download Asio (required by Crow)
+FetchContent_Declare(
+    asio
+    GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+    GIT_TAG asio-1-30-2
+)
+FetchContent_GetProperties(asio)
+if(NOT asio_POPULATED)
+    FetchContent_Populate(asio)
+    set(ASIO_INCLUDE_DIR "${asio_SOURCE_DIR}/asio/include" CACHE PATH "asio include dir" FORCE)
+endif()
+
+# Declare and download Crow from GitHub
+FetchContent_Declare(
+    Crow
+    GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
+    GIT_TAG v1.2.0 # Latest stable version
+)
+FetchContent_MakeAvailable(Crow)
+
+# Declare and download SQLiteCpp
+set(SQLITECPP_RUN_CPPLINT OFF CACHE BOOL "Run cpplint" FORCE)
+set(SQLITECPP_BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
+set(SQLITECPP_BUILD_EXAMPLES OFF CACHE BOOL "Build examples" FORCE)
+set(SQLITE_ENABLE_COLUMN_METADATA OFF CACHE BOOL "Enable column metadata" FORCE)
+
+FetchContent_Declare(
+    SQLiteCpp
+    GIT_REPOSITORY https://github.com/SRombauts/SQLiteCpp.git
+    GIT_TAG 3.3.1
+)
+FetchContent_MakeAvailable(SQLiteCpp)
+if(NOT MSVC)
+    target_compile_options(SQLiteCpp PUBLIC -include cstdint)
+endif()
+
 # The repository is currently a structure-first scaffold. This interface
 # target gives future libraries, modules, and applications a stable target to
 # consume without inventing source files that do not exist yet.
@@ -43,6 +82,11 @@ target_include_directories(central_platform_errors
 add_executable(test_app_error tests/unit/test_app_error.cpp)
 target_compile_features(test_app_error PRIVATE cxx_std_23)
 target_link_libraries(test_app_error PRIVATE central_platform_errors)
+
+# Examples
+add_executable(chat_app examples/chat_app/main.cpp)
+target_compile_features(chat_app PRIVATE cxx_std_23)
+target_link_libraries(chat_app PRIVATE central_platform central_platform_errors Crow::Crow SQLiteCpp)
 
 
 add_custom_target(validate-structure
