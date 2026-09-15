@@ -1,117 +1,200 @@
 # CentralPlatform
 
-CentralPlatform is the modular platform layer of the API Network System. This
-directory is organized as a set of explicit boundaries: shared infrastructure
-belongs in `core`, public API concerns belong in `api`, business capabilities
-belong in `modules`, and external technology integrations belong in
-`providers`.
+**CentralPlatform** is the core modular platform layer of the API Network System. It is engineered in modern **C++ (C++23)** to provide high-throughput, extensible backend services, clean domain boundaries, and pluggable infrastructure integrations.
 
-The directories are currently architectural placeholders. Add implementation
-files inside the existing boundaries as each capability is developed rather
-than moving cross-cutting logic into individual modules.
+The architecture is divided into explicit layers:
+- **`Core/`**: Cross-cutting foundation (module lifecycle, error models, logging, config).
+- **`api/`**: API gateway, routing, versioning, and response serialization.
+- **`modules/`**: Isolated business domains (auth, users, messaging, files, etc.).
+- **`providers/`**: Pluggable technology adapters (databases, auth providers, storage, caches).
+- **`application/`**: Shared orchestration, cross-module workflows, and repositories.
+- **`examples/`**: Reference applications showcasing platform integrations.
+- **`tests/`**: Unit, integration, and API test suites.
 
-## Directory structure
+---
 
-### `core/`
+## Architectural Breakdown & Components
 
-Shared platform infrastructure used by multiple parts of the system:
+```
+CentralPlatform/
+├── Core/                     # Shared platform infrastructure
+│   ├── errors/               # Structured error handling (AppError, ErrorType)
+│   ├── module_system/        # Module lifecycle management (IModule, ModuleManager)
+│   ├── config/               # Configuration management
+│   ├── events/               # Event dispatching
+│   ├── logging/              # Centralized logging
+│   ├── middleware/           # Pipeline and middleware hooks
+│   ├── security/             # Cryptographic & security policies
+│   └── validation/           # Domain and input validation
+│
+├── api/                      # Transport & API boundary
+│   ├── gateway/              # HTTP API gateway (HttpServerModule via Crow)
+│   ├── response/             # Response envelopes & status formatting
+│   ├── router/               # Request routing
+│   └── versioning/           # API version negotiation
+│
+├── modules/                  # Isolated business capabilities
+│   ├── auth/                 # Authentication & authorization (AuthModule)
+│   ├── users/                # User management & profile services
+│   ├── messaging/            # Real-time messaging & WebSocket handlers
+│   ├── files/                # File upload & metadata management
+│   ├── pdf/                  # PDF generation & processing
+│   ├── notifications/        # Notification dispatching
+│   ├── payments/             # Payment processing
+│   └── search/               # Search engine integrations
+│
+├── providers/                # Pluggable infrastructure adapters
+│   ├── database/             # IDatabaseProvider interface & sqlite/sqlProvider
+│   ├── authentication/       # JWT, OAuth, and custom identity providers
+│   ├── storage/              # Local filesystem & S3 storage providers
+│   └── cache/                # Redis and in-memory cache adapters
+│
+├── application/              # Shared orchestration & coordination
+│   ├── business_logic/       # Cross-cutting business rules
+│   ├── models/               # Application-level data structures
+│   ├── repositories/         # Persistence interfaces
+│   └── services/             # Multi-module orchestrators
+│
+├── examples/                 # Reference applications
+│   ├── chat_app/             # End-to-end integration demo (Crow + SQLite + Modules)
+│   ├── ecommerce_app/        # E-commerce reference app scaffold
+│   └── pdf_app/              # PDF processing reference app scaffold
+│
+├── tests/                    # Test suites
+│   ├── unit/                 # Unit tests (test_app_error)
+│   ├── integration/          # Inter-module integration tests
+│   └── api/                  # End-to-end API tests
+│
+├── config/                   # YAML environment configurations
+├── cli/                      # Developer CLI utilities (platform-cli)
+└── sdk/                      # Client SDKs (cpp, javascript, python)
+```
 
-- `config/` - configuration loading, environment handling, and settings.
-- `errors/` - common error types and error translation.
-- `logging/` - logging setup, formatting, and shared logging utilities.
-- `security/` - security primitives and security policy helpers.
-- `validation/` - reusable input and domain validation.
-- `middleware/` - request/response middleware and cross-cutting pipeline
-  behavior.
-- `events/` - event contracts, dispatching, and event handling.
-- `module_system/` - module registration, discovery, and lifecycle support.
+---
 
-### `api/`
+## Core Subsystems & Implementation Details
 
-The platform-facing API boundary:
+### 1. Module System (`Core/module_system`)
 
-- `gateway/` - API entry point, transport integration, and gateway concerns.
-- `router/` - route registration and request dispatch.
-- `versioning/` - API version negotiation and compatibility boundaries.
-- `response/` - common response envelopes, serialization, and status mapping.
+Provides lifecycle management for independent platform capabilities:
+- **`IModule`**: Abstract base class declaring:
+  - `getName()`: Returns the unique module identifier.
+  - `init()`: Returns `std::expected<void, AppError>` for safe startup.
+  - `shutdown()`: Returns `std::expected<void, AppError>` for graceful cleanup.
+- **`ModuleManager`**: Manages registration, ordered initialization, and guaranteed reverse-order teardown for all registered modules.
 
-### `modules/`
+### 2. Error Handling (`Core/errors`)
 
-Business capabilities are isolated here. Each module owns its own API,
-services, models, and provider-facing code where applicable:
+Utilizes C++23 monadic error handling:
+- **`AppError`**: Uniform error structure containing:
+  - `ErrorType` enum (`NotFound`, `ValidationFailed`, `Unauthorized`, `Internal`)
+  - `http_status` integer mapping (e.g., `404`, `400`, `401`, `500`)
+  - `message` detailed description
+- Functions return `std::expected<T, AppError>` instead of throwing runtime exceptions.
 
-- `auth/` - authentication and authorization workflows.
-- `users/` - user-facing domain operations.
-- `messaging/` - messaging workflows, WebSocket support, and message models.
-- `pdf/` - PDF operations and PDF provider integrations.
-- `files/` - file operations and storage provider integrations.
-- `notifications/` - notification capability boundary.
-- `payments/` - payment capability boundary.
-- `search/` - search capability boundary.
+### 3. Database Providers (`providers/database`)
 
-The more developed modules use these subdirectories:
+Decouples storage engines from domain modules:
+- **`IDatabaseProvider`**: Abstract interface defining:
+  - `connect(const std::string& connectionString)`
+  - `disconnect()`
+  - `execute(const std::string& sqlQuery)` returning `std::expected<QueryResult, AppError>`
+- **`QueryResult`**: Structured rows (`std::vector<std::vector<std::string>>`) and `affectedRows`.
+- **`sqllite::sqlProvider`**: Production-ready SQLite driver built on top of `SQLiteCpp`.
 
-- `api/` - module endpoints and transport adapters.
-- `service/` - module application and domain services.
-- `models/` - module data and domain models.
-- `providers/` - module-specific external integrations.
-- `websocket/` - real-time messaging transport concerns.
+### 4. API Gateway (`api/gateway`)
 
-### `providers/`
+- **`HttpServerModule`**: Integrates [Crow](https://github.com/CrowCpp/Crow) to expose asynchronous, multithreaded REST API endpoints.
+- Runs the web server in a dedicated background worker thread and conforms to the `IModule` lifecycle.
+- Built-in health check endpoint: `GET /api/status`.
 
-Replaceable infrastructure adapters. Interfaces define the contract and
-technology-specific directories contain implementations:
+### 5. Reference Application (`examples/chat_app`)
 
-- `database/` - `interface/`, `postgres/`, `mysql/`, `mongodb/`, and `sqlite/`.
-- `authentication/` - `interface/`, `jwt/`, `oauth/`, and `custom/`.
-- `storage/` - `interface/`, `local/`, and `s3/`.
-- `cache/` - `interface/` and `redis/`.
+Demonstrates complete system integration:
+1. Instantiates `ModuleManager`.
+2. Connects and registers `sqllite::sqlProvider` into `ModuleManager` as `std::shared_ptr<IDatabaseProvider>`.
+3. Registers `AuthModule` (passing `manager` reference) and `HttpServerModule`.
+4. Calls `manager.initializeAll()`, where `AuthModule` dynamically resolves `IDatabaseProvider` from the registry.
+5. Executes database operations (creates table, inserts user record, queries user).
+6. Runs the Crow HTTP server listening on `http://localhost:8080/api/status`.
+7. Performs safe, reverse-order shutdown and database disconnect on exit.
 
-Provider implementations should be selected through configuration or
-composition rather than being hard-coded into business modules.
+---
 
-### `application/`
+## Build Targets & Dependencies
 
-Shared application-level coordination:
+The project uses CMake (>= 3.20) with automated dependency management via `FetchContent`:
+- **`asio`**: Low-level asynchronous I/O (`asio-1-30-2`).
+- **`Crow`**: Fast and easy-to-use C++ web framework (`v1.2.0`).
+- **`SQLiteCpp`**: RAII SQLite C++ wrapper (`3.3.1`).
 
-- `models/` - application-wide models.
-- `services/` - services that coordinate multiple modules or providers.
-- `business_logic/` - shared business rules that do not belong to one module.
-- `repositories/` - persistence and data-access abstractions.
+### CMake Targets
 
-### `sdk/`
+| Target | Type | Description |
+| --- | --- | --- |
+| `central_platform` | Interface Library | Base include directories and C++23 compilation flags |
+| `central_platform_errors` | Interface Library | Header-only error handling (`Core/errors/apperrors.h`) |
+| `test_app_error` | Executable | Unit test suite for `AppError` and `std::expected` |
+| `chat_app` | Executable | End-to-end reference application |
+| `validate-structure` | Custom Target | Scaffold verification check |
 
-Client SDK locations for `cpp/`, `javascript/`, and `python/`.
+---
 
-### `cli/`
+## Building and Running
 
-Command-line tooling lives here. `platform-cli` is the reserved entry point
-for platform administration and developer workflows.
+### 1. Build
 
-### `tests/`
+```sh
+cmake -S . -B build
+cmake --build build
+```
 
-Test boundaries are split into `unit/`, `integration/`, and `api/`.
+### 2. Run Unit Tests
 
-### `docs/` and `examples/`
+```sh
+./build/test_app_error
+```
 
-`docs/` contains platform documentation. `examples/` contains reference
-applications for `chat_app/`, `pdf_app/`, and `ecommerce_app`.
+Output:
+```
+User found: user_1
+Error: User not found | HTTP Status: 404
+```
 
-### `config/`
+### 3. Run the Reference Application
 
-Environment configuration files:
+```sh
+./build/chat_app
+```
 
-- `default.yaml` - shared defaults.
-- `development.yaml` - local development overrides.
-- `production.yaml` - production overrides.
+Output:
+```
+SQL provider successfully connected to chat_users.db
+AuthModel initializing ...
+AuthModel successfully recieved the database provider
+Server starting on port 8080
+chat app, engine started successfully!
+Fetched User: AdminUser | admin@chat.com
+Press Enter to stop the server...
+```
 
-Configuration files should contain deployment settings, not secrets. Secrets
-should be supplied through the deployment environment or a secret manager.
+Test the live endpoint:
+```sh
+curl http://localhost:8080/api/status
+# Output: {"status": "Engine is running"}
+```
 
-## Build entry point
+### 4. Validate Structure
 
-[`CMakeLists.txt`](./CMakeLists.txt) is the build entry point for this
-directory. It currently provides a scaffold-safe interface target and a
-`validate-structure` target. As source implementations are added, executable
-and library targets can be introduced there without changing the top-level
-architecture.
+```sh
+cmake --build build --target validate-structure
+```
+
+---
+
+## Design Principles & Guidelines
+
+1. **Modern C++23**: Use RAII, smart pointers (`std::unique_ptr`), and `std::expected` for explicit error handling without overhead.
+2. **Strict Layering**: Never import providers directly into core or higher-level business modules. Always depend on provider interfaces.
+3. **Lifecycle Encapsulation**: Any service managing threads, connections, or background loops must implement `IModule` and support clean shutdown.
+4. **Configuration over Hardcoding**: Infrastructure backends must be configurable through environment settings or dependency injection.

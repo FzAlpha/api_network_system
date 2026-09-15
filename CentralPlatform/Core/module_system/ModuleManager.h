@@ -3,6 +3,8 @@
 #include <vector>
 #include <memory>
 #include <iostream>
+#include <unordered_map>
+#include <typeinfo>
 #include "IModule.h"
 
 namespace CentralPlatform::Core
@@ -11,6 +13,7 @@ namespace CentralPlatform::Core
     {
     private:
         std::vector<std::unique_ptr<IModule>> modules;
+        std::unordered_map<size_t, std::shared_ptr<void>> providers;
 
     public:
         ModuleManager() = default;
@@ -19,6 +22,27 @@ namespace CentralPlatform::Core
         void registerModule(std::unique_ptr<IModule> module)
         {
             modules.push_back(std::move(module));
+        }
+
+        template <typename P>
+        void registerProvider(std::shared_ptr<P> provider)
+        {
+            if (!provider)
+                return;
+            size_t typeID = typeid(P).hash_code();
+            providers[typeID] = std::static_pointer_cast<void>(provider);
+        }
+
+        template <typename T>
+        std::shared_ptr<T> getProvider()
+        {
+            size_t typeId = typeid(T).hash_code();
+            auto it = providers.find(typeId);
+            if (it != providers.end())
+            {
+                return std::static_pointer_cast<T>(it->second);
+            }
+            return nullptr;
         }
         std::expected<void, AppError> initializeAll()
         {
