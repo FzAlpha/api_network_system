@@ -13,7 +13,7 @@ namespace CentralPlatform::Modules::ApiGateway
     {
     public:
         using RouteHandler = std::function<crow::response(const crow::request &)>;
-        using Routehandle = RouteHandler; // Alias for backward compatibility
+        using Routehandle = RouteHandler; // Alias because i feel like it
 
     private:
         uint16_t port{8080};
@@ -38,11 +38,6 @@ namespace CentralPlatform::Modules::ApiGateway
         }
 
         uint16_t getPort() const
-        {
-            return port;
-        }
-
-        uint16_t getport() const
         {
             return port;
         }

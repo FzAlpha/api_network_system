@@ -44,6 +44,24 @@ namespace CentralPlatform::Core
             }
             return nullptr;
         }
+        template <typename T>
+        T *getModule()
+        {
+            for (const auto &mod : modules)
+            {
+                if (auto *target = dynamic_cast<T *>(mod.get()))
+                {
+                    return target;
+                }
+            }
+            return nullptr;
+        }
+
+        template <typename T>
+        T *getmodule()
+        {
+            return getModule<T>();
+        }
         std::expected<void, AppError> initializeAll()
         {
             for (auto &mod : modules)

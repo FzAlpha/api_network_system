@@ -9,7 +9,7 @@ namespace CentralPlatform::Core
   class IModule
   {
   public:
-    virtual ~IModule() {}
+    virtual ~IModule() = default;
 
     virtual std::string getName() const = 0;
     virtual std::expected<void, AppError> init() = 0;

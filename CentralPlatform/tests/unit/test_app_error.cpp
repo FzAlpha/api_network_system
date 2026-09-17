@@ -23,19 +23,21 @@ int main()
   }
   else
   {
-    std::cout << "Error: " << userResult.error().message
+    std::cerr << "Test failed: Expected user found, got error: " << userResult.error().message
               << " | HTTP Status: " << userResult.error().http_status
               << std::endl;
+    return 1;
   }
 
   auto errorResult = fetchUserId(99);
   if (errorResult.has_value())
   {
-    std::cout << "User found: " << errorResult.value() << std::endl;
+    std::cerr << "Test failed: Expected error for non-existent user, but got value: " << errorResult.value() << std::endl;
+    return 1;
   }
   else
   {
-    std::cout << "Error: " << errorResult.error().message
+    std::cout << "Error handled as expected: " << errorResult.error().message
               << " | HTTP Status: " << errorResult.error().http_status
               << std::endl;
   }

@@ -17,6 +17,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Include CMake's FetchContent module
 include(FetchContent)
 
+if(POLICY CMP0169)
+    cmake_policy(SET CMP0169 OLD)
+endif()
+
 # Declare and download Asio (required by Crow)
 FetchContent_Declare(
     asio
@@ -53,6 +57,17 @@ if(NOT MSVC)
     target_compile_options(SQLiteCpp PUBLIC -include cstdint)
 endif()
 
+# Core error handling library (header-only)
+add_library(central_platform_errors INTERFACE)
+add_library(CentralPlatform::errors ALIAS central_platform_errors)
+target_compile_features(central_platform_errors INTERFACE cxx_std_23)
+target_include_directories(central_platform_errors
+    INTERFACE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/errors>"
+        "$<INSTALL_INTERFACE:include>"
+)
+
 # The repository is currently a structure-first scaffold. This interface
 # target gives future libraries, modules, and applications a stable target to
 # consume without inventing source files that do not exist yet.
@@ -66,16 +81,11 @@ target_include_directories(central_platform
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
         "$<INSTALL_INTERFACE:include>"
 )
-
-# Core error handling library (header-only)
-add_library(central_platform_errors INTERFACE)
-add_library(CentralPlatform::errors ALIAS central_platform_errors)
-target_compile_features(central_platform_errors INTERFACE cxx_std_23)
-target_include_directories(central_platform_errors
+target_link_libraries(central_platform
     INTERFACE
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/errors>"
-        "$<INSTALL_INTERFACE:include>"
+        central_platform_errors
+        Crow::Crow
+        SQLiteCpp
 )
 
 # Test executables
@@ -86,7 +96,7 @@ target_link_libraries(test_app_error PRIVATE central_platform_errors)
 # Examples
 add_executable(chat_app examples/chat_app/main.cpp)
 target_compile_features(chat_app PRIVATE cxx_std_23)
-target_link_libraries(chat_app PRIVATE central_platform central_platform_errors Crow::Crow SQLiteCpp)
+target_link_libraries(chat_app PRIVATE central_platform)
 
 
 add_custom_target(validate-structure
@@ -98,6 +108,7 @@ add_custom_target(validate-structure
 
 include(CTest)
 if(BUILD_TESTING)
+    add_test(NAME test_app_error COMMAND test_app_error)
     add_custom_target(test-structure
         COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target validate-structure
         COMMENT "Running scaffold structure checks"
