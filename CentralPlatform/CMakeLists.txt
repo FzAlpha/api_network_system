@@ -96,7 +96,7 @@ target_link_libraries(test_app_error PRIVATE central_platform_errors)
 # Examples
 add_executable(chat_app examples/chat_app/main.cpp)
 target_compile_features(chat_app PRIVATE cxx_std_23)
-target_link_libraries(chat_app PRIVATE central_platform)
+target_link_libraries(chat_app PRIVATE central_platform nlohmann_json::nlohmann_json)
 
 
 add_custom_target(validate-structure
